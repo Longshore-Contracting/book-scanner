@@ -351,11 +351,6 @@
                     <label for="bookPublisher">Publisher (optional):</label>
                     <input type="text" id="bookPublisher" placeholder="Publisher" />
                 </div>
-                <div class="form-group">
-                    <label for="bookTeacher">Teacher:</label>
-                    <input type="text" id="bookTeacher" placeholder="Teacher name" readonly style="background-color: #f8f9fa;" />
-                    <small style="color: #666; font-size: 0.9rem;">Auto-filled from scanner info above</small>
-                </div>
                 <div class="controls">
                     <button id="addBook" class="btn">✅ Add to List</button>
                     <button id="scanAnother" class="btn btn-secondary">🔄 Scan Another</button>
@@ -854,10 +849,6 @@ No credit card required!
                 document.getElementById('bookAuthor').value = bookData.author;
                 document.getElementById('bookPublisher').value = bookData.publisher;
                 
-                // Auto-fill teacher from the saved default
-                const defaultTeacher = document.getElementById('defaultTeacher').value.trim();
-                document.getElementById('bookTeacher').value = defaultTeacher;
-                
                 document.getElementById('extractedData').classList.remove('hidden');
             }
 
@@ -866,10 +857,10 @@ No credit card required!
                 const title = document.getElementById('bookTitle').value.trim();
                 const author = document.getElementById('bookAuthor').value.trim();
                 const publisher = document.getElementById('bookPublisher').value.trim();
-                const teacher = document.getElementById('bookTeacher').value.trim();
+                const teacher = document.getElementById('defaultTeacher').value.trim(); // Get from top section
                 
-                if (!title || !author || !teacher) {
-                    this.showStatus('Please fill in all required fields: Title, Author, and Teacher.', 'error');
+                if (!title || !author || !teacher || !scannerName) {
+                    this.showStatus('Please fill in all required fields: Name, Teacher (at top), Title, and Author.', 'error');
                     return;
                 }
                 
@@ -929,7 +920,6 @@ No credit card required!
                 document.getElementById('bookTitle').value = '';
                 document.getElementById('bookAuthor').value = '';
                 document.getElementById('bookPublisher').value = '';
-                document.getElementById('bookTeacher').value = '';
                 document.getElementById('status').classList.add('hidden');
                 document.getElementById('photoUpload').value = '';
             }
