@@ -241,7 +241,6 @@
             display: block;
         }
 
-        /* Hide file input */
         #photoUpload {
             display: none;
         }
@@ -373,7 +372,6 @@
                 this.updateDisplay();
                 this.updateApiNotice();
                 
-                // Debug mode - show debug info
                 this.debugMode = window.location.search.includes('debug=true');
                 if (this.debugMode) {
                     document.getElementById('debugInfo').classList.remove('hidden');
@@ -429,7 +427,6 @@ OR just paste this (I'll convert it):
                 if (url) {
                     let formUrl = url;
                     
-                    // Convert viewform URL to formResponse if needed
                     if (url.includes('viewform')) {
                         formUrl = url.replace('viewform', 'formResponse').split('?')[0];
                     }
@@ -440,7 +437,6 @@ OR just paste this (I'll convert it):
                         this.updateApiNotice();
                         this.showStatus('✅ Google Sheets connected! All new scans will sync to your spreadsheet.', 'success');
                         
-                        // Show next step
                         setTimeout(() => {
                             alert('Next: I need to get the field IDs from your form. Please scan a test book to set this up automatically.');
                         }, 2000);
@@ -448,13 +444,6 @@ OR just paste this (I'll convert it):
                         alert('Please paste your Google Form URL (the one that contains your form ID)');
                     }
                 }
-            }
-
-            toggleManualMode() {
-                this.manualMode = true;
-                localStorage.setItem('manualMode', 'true');
-                this.updateApiNotice();
-                this.showStatus('✅ Manual mode enabled! Take photos and type book info yourself.', 'success');
             }
 
             promptForApiKey() {
@@ -484,13 +473,19 @@ No credit card required!
                 this.promptForApiKey();
             }
 
+            toggleManualMode() {
+                this.manualMode = true;
+                localStorage.setItem('manualMode', 'true');
+                this.updateApiNotice();
+                this.showStatus('✅ Manual mode enabled! Take photos and type book info yourself.', 'success');
+            }
+
             initEventListeners() {
                 document.getElementById('uploadBtn').addEventListener('click', () => this.openPhotoUpload());
                 document.getElementById('photoUpload').addEventListener('change', (e) => this.handlePhotoUpload(e));
                 document.getElementById('addBook').addEventListener('click', () => this.addBook());
                 document.getElementById('scanAnother').addEventListener('click', () => this.resetForNewScan());
                 
-                // Keyboard shortcut for API key
                 document.addEventListener('keydown', (e) => {
                     if (e.ctrlKey && e.shiftKey && e.key === 'K') {
                         e.preventDefault();
@@ -519,14 +514,12 @@ No credit card required!
                     return;
                 }
 
-                // Show photo preview
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     this.debug('Image loaded, showing preview');
                     document.getElementById('previewImage').src = e.target.result;
                     document.getElementById('photoPreview').classList.remove('hidden');
                     
-                    // Start processing
                     this.processImage(e.target.result);
                 };
                 reader.onerror = (e) => {
@@ -542,7 +535,6 @@ No credit card required!
                     let text = '';
                     
                     if (this.manualMode) {
-                        // Skip OCR, go straight to manual entry
                         this.debug('Manual mode - skipping OCR');
                         this.showExtractedData({
                             title: '',
@@ -573,7 +565,6 @@ No credit card required!
                     this.showExtractedData(bookData);
                     this.showStatus('✅ Text extraction complete! Please review the information below.', 'success');
                     
-                    // Mark as successful and hide banner
                     this.hasSuccessfulScan = true;
                     localStorage.setItem('hasSuccessfulScan', 'true');
                     this.updateApiNotice();
@@ -582,7 +573,6 @@ No credit card required!
                     this.debug('Error processing image: ' + error.message);
                     console.error('OCR Error:', error);
                     
-                    // If API fails, offer manual mode
                     if (error.message.includes('403') || error.message.includes('billing')) {
                         this.showStatus('⚠️ Google API requires billing setup. Switching to manual mode...', 'error');
                         setTimeout(() => {
@@ -645,7 +635,6 @@ No credit card required!
 
             async processWithTesseract(imageData) {
                 this.debug('Loading Tesseract');
-                // Load Tesseract dynamically
                 if (!window.Tesseract) {
                     const script = document.createElement('script');
                     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js';
@@ -677,34 +666,28 @@ No credit card required!
                 let author = '';
                 let publisher = '';
                 
-                // Enhanced extraction logic
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
                     
-                    // Skip lines that are clearly not book info
                     if (line.length < 3 || /^[^a-zA-Z0-9\s]/.test(line)) continue;
                     
-                    // Find author patterns
                     if (!author && (/\b(by|author|written by)\b/i.test(line) || 
                         /^[A-Z][a-z]+ [A-Z][a-z]+$/.test(line))) {
                         author = line.replace(/\b(by|author|written by)\b/gi, '').trim();
                         continue;
                     }
                     
-                    // Find publisher patterns
                     if (/\b(press|books|publishing|publishers?|publications?|media|house)\b/i.test(line)) {
                         publisher = line;
                         continue;
                     }
                     
-                    // Title is usually the longest meaningful line that's not author/publisher
                     if (!title && line.length > 5 && line.length < 100 && 
                         !/\b(isbn|copyright|edition|page|chapter)\b/i.test(line)) {
                         title = line;
                     }
                 }
                 
-                // Fallbacks
                 if (!title && lines.length > 0) title = lines[0];
                 if (!author && lines.length > 1) author = lines[1];
                 if (!publisher && lines.length > 2) publisher = lines[lines.length - 1];
@@ -721,6 +704,7 @@ No credit card required!
                 document.getElementById('bookTitle').value = bookData.title;
                 document.getElementById('bookAuthor').value = bookData.author;
                 document.getElementById('bookPublisher').value = bookData.publisher;
+                document.getElementById('bookTeacher').value = '';
                 document.getElementById('extractedData').classList.remove('hidden');
             }
 
@@ -748,12 +732,10 @@ No credit card required!
                 
                 this.debug(`Adding book: ${JSON.stringify(book)}`);
                 
-                // Add to local storage
                 this.books.unshift(book);
                 this.saveBooks();
                 this.updateDisplay();
                 
-                // Send to Google Sheets if connected
                 if (this.googleFormUrl) {
                     this.submitToGoogleSheets(book);
                 }
@@ -766,29 +748,24 @@ No credit card required!
                 try {
                     this.debug('Submitting to Google Sheets');
                     
-                    // Create form data matching your Google Form field order:
-                    // 1. Title, 2. Author, 3. Publisher, 4. Scanned By, 5. Teacher
-                    // (Timestamp is automatic in Google Forms)
                     const formData = new FormData();
                     
-                    // These field IDs match your form structure
-                    formData.append('entry.1965693902', book.title);        // Title (required)
-                    formData.append('entry.1045781044', book.author);       // Author (required)
-                    formData.append('entry.1166974658', book.publisher);    // Publisher (optional)
-                    formData.append('entry.1887797709', book.scannedBy);    // Scanned By (required)
-                    formData.append('entry.1983576950', book.teacher);      // Teacher (required)
+                    formData.append('entry.1965693902', book.title);
+                    formData.append('entry.1045781044', book.author);
+                    formData.append('entry.1166974658', book.publisher);
+                    formData.append('entry.1887797709', book.scannedBy);
+                    formData.append('entry.1983576950', book.teacher);
                     
                     const response = await fetch(this.googleFormUrl, {
                         method: 'POST',
                         body: formData,
-                        mode: 'no-cors' // Required for Google Forms
+                        mode: 'no-cors'
                     });
                     
                     this.debug('Successfully submitted to Google Sheets');
                     
                 } catch (error) {
                     this.debug('Error submitting to Google Sheets: ' + error.message);
-                    // Don't show error to user - local storage still works
                 }
             }
 
@@ -863,10 +840,8 @@ No credit card required!
             }
         }
 
-        // Initialize the app
         const bookScanner = new BookScanner();
 
-        // Enable debug mode by adding ?debug=true to URL
         if (window.location.search.includes('debug=true')) {
             console.log('Debug mode enabled - check the debug info section');
         }
