@@ -892,13 +892,16 @@ No credit card required!
                 try {
                     this.debug('Submitting to Google Sheets');
                     
+                    // Create form data with the correct entry IDs from your Google Form
                     const formData = new FormData();
                     
-                    formData.append('entry.1965693902', book.title);
-                    formData.append('entry.1045781044', book.author);
-                    formData.append('entry.1166974658', book.publisher);
-                    formData.append('entry.1887797709', book.scannedBy);
-                    formData.append('entry.1983576950', book.teacher);
+                    formData.append('entry.751697957', book.title);      // Title field
+                    formData.append('entry.654337640', book.author);     // Author field
+                    formData.append('entry.1879822333', book.publisher); // Publisher field
+                    formData.append('entry.320463454', book.scannedBy);  // Scanned By field
+                    formData.append('entry.76820609', book.teacher);     // Teacher field
+                    
+                    this.debug(`Form data: Title=${book.title}, Author=${book.author}, Publisher=${book.publisher}, ScannedBy=${book.scannedBy}, Teacher=${book.teacher}`);
                     
                     const response = await fetch(this.googleFormUrl, {
                         method: 'POST',
