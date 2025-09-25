@@ -298,11 +298,8 @@
             <p>Take photos of book covers with your phone</p>
         </div>
 
-        <div class="api-notice" id="apiNotice">
-            <strong>⚡ Quick Start:</strong> Use manual entry mode (no API required) or add Google Vision API for auto-extraction
-            <button onclick="bookScanner.promptForApiKey()">Add Google API Key</button>
-            <button onclick="bookScanner.toggleManualMode()">Manual Entry Mode</button>
-            <button onclick="bookScanner.setupGoogleForm()">📊 Connect Google Sheet</button>
+        <div class="api-notice" id="apiNotice" style="display: none;">
+            <!-- Banner hidden when hardcoded -->
         </div>
 
         <div class="scanner-section">
@@ -388,10 +385,13 @@
         class BookScanner {
             constructor() {
                 this.books = this.loadBooks();
-                this.apiKey = localStorage.getItem('googleCloudApiKey') || '';
+                
+                // HARDCODED VALUES - Replace with your actual values
+                this.apiKey = 'YOUR_GOOGLE_VISION_API_KEY_HERE'; // Replace with your API key
+                this.googleFormUrl = 'https://docs.google.com/forms/d/e/1FAIpQLScqbEx1MYyVhgYDq29SDNQiyY1F3MlF-3nbfBT950qRG5amVg/formResponse'; // Your form submit URL
+                
                 this.hasSuccessfulScan = localStorage.getItem('hasSuccessfulScan') === 'true';
-                this.manualMode = localStorage.getItem('manualMode') === 'true';
-                this.googleFormUrl = localStorage.getItem('googleFormUrl') || '';
+                this.manualMode = false; // Always use OCR when API key is hardcoded
                 
                 // Load saved user info
                 this.loadUserInfo();
@@ -463,24 +463,9 @@
             }
 
             updateApiNotice() {
+                // When hardcoded, always hide the setup banner
                 const notice = document.getElementById('apiNotice');
-                if (this.googleFormUrl && this.hasSuccessfulScan) {
-                    notice.innerHTML = '<strong>✅ Google Sheets:</strong> All data syncing to your spreadsheet!';
-                    notice.className = 'api-notice success';
-                } else if (this.googleFormUrl) {
-                    notice.innerHTML = '<strong>📊 Google Sheets:</strong> Connected! Data will sync to your spreadsheet';
-                    notice.className = 'api-notice success';
-                } else if (this.apiKey && this.hasSuccessfulScan) {
-                    notice.style.display = 'none';
-                } else if (this.apiKey) {
-                    notice.innerHTML = '<strong>✅ Google Vision API:</strong> Auto-extraction enabled!';
-                    notice.className = 'api-notice success';
-                } else if (this.manualMode) {
-                    notice.innerHTML = '<strong>📝 Manual Mode:</strong> You\'ll type book info after taking photos <button onclick="bookScanner.setupGoogleForm()">📊 Connect Google Sheet</button>';
-                    notice.className = 'api-notice success';
-                } else {
-                    notice.style.display = 'block';
-                }
+                notice.style.display = 'none';
             }
 
             setupGoogleForm() {
