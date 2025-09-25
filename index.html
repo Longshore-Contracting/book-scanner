@@ -296,12 +296,26 @@
         </div>
 
         <div class="scanner-section">
-            <h2>📱 Scan a Book</h2>
+            <h2>👤 Scanner Info</h2>
             
             <div class="form-group">
                 <label for="scannerName">Your Name:</label>
                 <input type="text" id="scannerName" placeholder="Enter your name" />
             </div>
+            
+            <div class="form-group">
+                <label for="defaultTeacher">Teacher:</label>
+                <input type="text" id="defaultTeacher" placeholder="Enter teacher name" />
+            </div>
+            
+            <div class="controls">
+                <button id="saveUserInfo" class="btn">💾 Save My Info</button>
+                <button id="clearUserInfo" class="btn btn-secondary">🗑️ Clear Saved Info</button>
+            </div>
+            
+            <hr style="margin: 30px 0; border: none; border-top: 2px solid #e9ecef;">
+            
+            <h2>📱 Scan a Book</h2>
 
             <div class="controls">
                 <input type="file" id="photoUpload" accept="image/*" capture="environment">
