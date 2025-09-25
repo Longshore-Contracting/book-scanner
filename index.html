@@ -622,11 +622,23 @@ No credit card required!
                         return;
                     }
                     
-                    if (this.apiKey) {
+                    if (this.apiKey && this.apiKey !== 'YOUR_GOOGLE_VISION_API_KEY_HERE') {
                         this.showStatus('🔍 Processing with Google Vision API...', 'processing');
                         this.debug('Using Google Vision API');
-                        text = await this.callGoogleVisionAPI(imageData);
-                        this.debug(`Extracted text length: ${text.length}`);
+                        try {
+                            text = await this.callGoogleVisionAPI(imageData);
+                            this.debug(`Extracted text length: ${text.length}`);
+                        } catch (apiError) {
+                            this.debug('API failed, falling back to manual mode: ' + apiError.message);
+                            this.manualMode = true;
+                            this.showExtractedData({
+                                title: '',
+                                author: '',
+                                publisher: ''
+                            });
+                            this.showStatus('⚠️ API key issue - switched to manual mode. Please type book info below.', 'error');
+                            return;
+                        }
                     } else {
                         this.showStatus('🔍 Processing with basic OCR (lower quality)...', 'processing');
                         this.debug('Using Tesseract fallback');
@@ -650,32 +662,14 @@ No credit card required!
                     this.debug('Error processing image: ' + error.message);
                     console.error('OCR Error:', error);
                     
-                    if (error.message.includes('400') || error.message.includes('API key')) {
-                        this.showStatus('⚠️ Invalid API key. Switching to manual mode...', 'error');
-                        setTimeout(() => {
-                            this.manualMode = true;
-                            this.showExtractedData({
-                                title: '',
-                                author: '',
-                                publisher: ''
-                            });
-                            this.showStatus('📝 Manual mode: Please type the book information below.', 'success');
-                        }, 2000);
-                    } else if (error.message.includes('403') || error.message.includes('billing')) {
-                        this.showStatus('⚠️ Google API requires billing setup. Switching to manual mode...', 'error');
-                        setTimeout(() => {
-                            this.manualMode = true;
-                            this.showExtractedData({
-                                title: '',
-                                author: '',
-                                publisher: ''
-                            });
-                            this.showStatus('📝 Manual mode: Please type the book information below.', 'success');
-                        }, 2000);
-                    } else {
-                        this.showStatus('❌ Error processing image: ' + error.message, 'error');
-                        this.resetForNewScan();
-                    }
+                    // Always fall back to manual mode on any error
+                    this.manualMode = true;
+                    this.showExtractedData({
+                        title: '',
+                        author: '',
+                        publisher: ''
+                    });
+                    this.showStatus('📝 Switched to manual mode. Please type the book information below.', 'success');
                 }
             }
 
