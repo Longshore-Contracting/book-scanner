@@ -328,8 +328,12 @@
                     <input type="text" id="bookAuthor" placeholder="Author name" />
                 </div>
                 <div class="form-group">
-                    <label for="bookPublisher">Publisher:</label>
+                    <label for="bookPublisher">Publisher (optional):</label>
                     <input type="text" id="bookPublisher" placeholder="Publisher" />
+                </div>
+                <div class="form-group">
+                    <label for="bookTeacher">Teacher:</label>
+                    <input type="text" id="bookTeacher" placeholder="Teacher name" />
                 </div>
                 <div class="controls">
                     <button id="addBook" class="btn">✅ Add to List</button>
@@ -410,30 +414,39 @@
                 const instructions = `
 📊 Connect to Google Sheets:
 
-1. Go to forms.google.com
-2. Create new form: "Book Scanner Data"  
-3. Add these SHORT ANSWER questions:
-   • Title (required)
-   • Author (required)  
-   • Publisher (required)
-   • Scanned By (required)
-   • Timestamp (required)
+Your form URL: https://docs.google.com/forms/d/e/1FAIpQLScqbEx1MYyVhgYDq29SDNQiyY1F3MlF-3nbfBT950qRG5amVg/viewform
 
-4. Click Responses tab → Green Sheets icon
-5. Copy your form's submit URL (looks like):
-   https://docs.google.com/forms/d/e/ABC123/formResponse
+To get the submit URL:
+1. Right-click on your form → "View page source"
+2. Search for "action" (Ctrl+F)
+3. Copy the URL that looks like:
+   https://docs.google.com/forms/d/e/1FAIpQLScqbEx1MYyVhgYDq29SDNQiyY1F3MlF-3nbfBT950qRG5amVg/formResponse
 
-Paste that URL below:
+OR just paste this (I'll convert it):
                 `;
                 
                 const url = prompt(instructions);
-                if (url && url.includes('formResponse')) {
-                    this.googleFormUrl = url;
-                    localStorage.setItem('googleFormUrl', url);
-                    this.updateApiNotice();
-                    this.showStatus('✅ Google Sheets connected! All new scans will sync to your spreadsheet.', 'success');
-                } else if (url) {
-                    alert('Please make sure you copied the form submit URL (should contain "formResponse")');
+                if (url) {
+                    let formUrl = url;
+                    
+                    // Convert viewform URL to formResponse if needed
+                    if (url.includes('viewform')) {
+                        formUrl = url.replace('viewform', 'formResponse').split('?')[0];
+                    }
+                    
+                    if (formUrl.includes('formResponse')) {
+                        this.googleFormUrl = formUrl;
+                        localStorage.setItem('googleFormUrl', formUrl);
+                        this.updateApiNotice();
+                        this.showStatus('✅ Google Sheets connected! All new scans will sync to your spreadsheet.', 'success');
+                        
+                        // Show next step
+                        setTimeout(() => {
+                            alert('Next: I need to get the field IDs from your form. Please scan a test book to set this up automatically.');
+                        }, 2000);
+                    } else {
+                        alert('Please paste your Google Form URL (the one that contains your form ID)');
+                    }
                 }
             }
 
@@ -697,9 +710,9 @@ No credit card required!
                 if (!publisher && lines.length > 2) publisher = lines[lines.length - 1];
                 
                 return { 
-                    title: title || 'Unknown Title', 
-                    author: author || 'Unknown Author', 
-                    publisher: publisher || 'Unknown Publisher' 
+                    title: title || '', 
+                    author: author || '', 
+                    publisher: publisher || '' 
                 };
             }
 
@@ -716,18 +729,20 @@ No credit card required!
                 const title = document.getElementById('bookTitle').value.trim();
                 const author = document.getElementById('bookAuthor').value.trim();
                 const publisher = document.getElementById('bookPublisher').value.trim();
+                const teacher = document.getElementById('bookTeacher').value.trim();
                 
-                if (!title) {
-                    this.showStatus('Please enter at least a book title.', 'error');
+                if (!title || !author || !teacher) {
+                    this.showStatus('Please fill in all required fields: Title, Author, and Teacher.', 'error');
                     return;
                 }
                 
                 const book = {
                     id: Date.now(),
                     title,
-                    author: author || 'Unknown Author',
-                    publisher: publisher || 'Unknown Publisher',
+                    author,
+                    publisher: publisher || '',
                     scannedBy: scannerName,
+                    teacher,
                     timestamp: new Date().toLocaleString()
                 };
                 
@@ -751,16 +766,17 @@ No credit card required!
                 try {
                     this.debug('Submitting to Google Sheets');
                     
-                    // Create form data - field names must match your form
+                    // Create form data matching your Google Form field order:
+                    // 1. Title, 2. Author, 3. Publisher, 4. Scanned By, 5. Teacher
+                    // (Timestamp is automatic in Google Forms)
                     const formData = new FormData();
                     
-                    // You'll need to update these field IDs after creating your form
-                    // For now, using common field patterns
-                    formData.append('entry.1', book.title);        // Title field
-                    formData.append('entry.2', book.author);       // Author field  
-                    formData.append('entry.3', book.publisher);    // Publisher field
-                    formData.append('entry.4', book.scannedBy);    // Scanned By field
-                    formData.append('entry.5', book.timestamp);    // Timestamp field
+                    // These field IDs match your form structure
+                    formData.append('entry.1965693902', book.title);        // Title (required)
+                    formData.append('entry.1045781044', book.author);       // Author (required)
+                    formData.append('entry.1166974658', book.publisher);    // Publisher (optional)
+                    formData.append('entry.1887797709', book.scannedBy);    // Scanned By (required)
+                    formData.append('entry.1983576950', book.teacher);      // Teacher (required)
                     
                     const response = await fetch(this.googleFormUrl, {
                         method: 'POST',
@@ -783,6 +799,7 @@ No credit card required!
                 document.getElementById('bookTitle').value = '';
                 document.getElementById('bookAuthor').value = '';
                 document.getElementById('bookPublisher').value = '';
+                document.getElementById('bookTeacher').value = '';
                 document.getElementById('status').classList.add('hidden');
                 document.getElementById('photoUpload').value = '';
             }
@@ -805,7 +822,8 @@ No credit card required!
                         <div class="book-item">
                             <h3>${this.escapeHtml(book.title)}</h3>
                             <p><strong>Author:</strong> ${this.escapeHtml(book.author)}</p>
-                            <p><strong>Publisher:</strong> ${this.escapeHtml(book.publisher)}</p>
+                            <p><strong>Publisher:</strong> ${this.escapeHtml(book.publisher || 'Not specified')}</p>
+                            <p><strong>Teacher:</strong> ${this.escapeHtml(book.teacher)}</p>
                             <p class="scanned-by">Scanned by ${this.escapeHtml(book.scannedBy)} on ${book.timestamp}</p>
                         </div>
                     `).join('');
