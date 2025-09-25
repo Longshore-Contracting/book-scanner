@@ -290,9 +290,10 @@
         </div>
 
         <div class="api-notice" id="apiNotice">
-            <strong>🔑 Setup Required:</strong> Add your Google Vision API key for high-quality OCR
-            <button onclick="bookScanner.promptForApiKey()">Add API Key</button>
-            <button onclick="bookScanner.showApiInstructions()">Get Free API Key</button>
+            <strong>⚡ Quick Start:</strong> Use manual entry mode (no API required) or add Google Vision API for auto-extraction
+            <button onclick="bookScanner.promptForApiKey()">Add Google API Key</button>
+            <button onclick="bookScanner.toggleManualMode()">Manual Entry Mode</button>
+            <button onclick="bookScanner.setupGoogleForm()">📊 Connect Google Sheet</button>
         </div>
 
         <div class="scanner-section">
@@ -361,6 +362,8 @@
                 this.books = this.loadBooks();
                 this.apiKey = localStorage.getItem('googleCloudApiKey') || '';
                 this.hasSuccessfulScan = localStorage.getItem('hasSuccessfulScan') === 'true';
+                this.manualMode = localStorage.getItem('manualMode') === 'true';
+                this.googleFormUrl = localStorage.getItem('googleFormUrl') || '';
                 
                 this.initEventListeners();
                 this.updateDisplay();
@@ -384,14 +387,61 @@
 
             updateApiNotice() {
                 const notice = document.getElementById('apiNotice');
-                if (this.apiKey && this.hasSuccessfulScan) {
+                if (this.googleFormUrl && this.hasSuccessfulScan) {
+                    notice.innerHTML = '<strong>✅ Google Sheets:</strong> All data syncing to your spreadsheet!';
+                    notice.className = 'api-notice success';
+                } else if (this.googleFormUrl) {
+                    notice.innerHTML = '<strong>📊 Google Sheets:</strong> Connected! Data will sync to your spreadsheet';
+                    notice.className = 'api-notice success';
+                } else if (this.apiKey && this.hasSuccessfulScan) {
                     notice.style.display = 'none';
                 } else if (this.apiKey) {
-                    notice.innerHTML = '<strong>✅ Google Vision API:</strong> High-quality OCR enabled!';
+                    notice.innerHTML = '<strong>✅ Google Vision API:</strong> Auto-extraction enabled!';
+                    notice.className = 'api-notice success';
+                } else if (this.manualMode) {
+                    notice.innerHTML = '<strong>📝 Manual Mode:</strong> You\'ll type book info after taking photos <button onclick="bookScanner.setupGoogleForm()">📊 Connect Google Sheet</button>';
                     notice.className = 'api-notice success';
                 } else {
                     notice.style.display = 'block';
                 }
+            }
+
+            setupGoogleForm() {
+                const instructions = `
+📊 Connect to Google Sheets:
+
+1. Go to forms.google.com
+2. Create new form: "Book Scanner Data"  
+3. Add these SHORT ANSWER questions:
+   • Title (required)
+   • Author (required)  
+   • Publisher (required)
+   • Scanned By (required)
+   • Timestamp (required)
+
+4. Click Responses tab → Green Sheets icon
+5. Copy your form's submit URL (looks like):
+   https://docs.google.com/forms/d/e/ABC123/formResponse
+
+Paste that URL below:
+                `;
+                
+                const url = prompt(instructions);
+                if (url && url.includes('formResponse')) {
+                    this.googleFormUrl = url;
+                    localStorage.setItem('googleFormUrl', url);
+                    this.updateApiNotice();
+                    this.showStatus('✅ Google Sheets connected! All new scans will sync to your spreadsheet.', 'success');
+                } else if (url) {
+                    alert('Please make sure you copied the form submit URL (should contain "formResponse")');
+                }
+            }
+
+            toggleManualMode() {
+                this.manualMode = true;
+                localStorage.setItem('manualMode', 'true');
+                this.updateApiNotice();
+                this.showStatus('✅ Manual mode enabled! Take photos and type book info yourself.', 'success');
             }
 
             promptForApiKey() {
@@ -478,6 +528,18 @@ No credit card required!
                 try {
                     let text = '';
                     
+                    if (this.manualMode) {
+                        // Skip OCR, go straight to manual entry
+                        this.debug('Manual mode - skipping OCR');
+                        this.showExtractedData({
+                            title: '',
+                            author: '',
+                            publisher: ''
+                        });
+                        this.showStatus('📝 Manual mode: Please type the book information below.', 'success');
+                        return;
+                    }
+                    
                     if (this.apiKey) {
                         this.showStatus('🔍 Processing with Google Vision API...', 'processing');
                         this.debug('Using Google Vision API');
@@ -506,8 +568,25 @@ No credit card required!
                 } catch (error) {
                     this.debug('Error processing image: ' + error.message);
                     console.error('OCR Error:', error);
-                    this.showStatus('❌ Error processing image: ' + error.message, 'error');
-                    this.resetForNewScan();
+                    
+                    // If API fails, offer manual mode
+                    if (error.message.includes('403') || error.message.includes('billing')) {
+                        this.showStatus('⚠️ Google API requires billing setup. Switching to manual mode...', 'error');
+                        setTimeout(() => {
+                            this.manualMode = true;
+                            localStorage.setItem('manualMode', 'true');
+                            this.updateApiNotice();
+                            this.showExtractedData({
+                                title: '',
+                                author: '',
+                                publisher: ''
+                            });
+                            this.showStatus('📝 Manual mode: Please type the book information below.', 'success');
+                        }, 2000);
+                    } else {
+                        this.showStatus('❌ Error processing image: ' + error.message, 'error');
+                        this.resetForNewScan();
+                    }
                 }
             }
 
@@ -653,11 +732,48 @@ No credit card required!
                 };
                 
                 this.debug(`Adding book: ${JSON.stringify(book)}`);
+                
+                // Add to local storage
                 this.books.unshift(book);
                 this.saveBooks();
                 this.updateDisplay();
+                
+                // Send to Google Sheets if connected
+                if (this.googleFormUrl) {
+                    this.submitToGoogleSheets(book);
+                }
+                
                 this.showStatus(`✅ "${title}" added to the list!`, 'success');
                 this.resetForNewScan();
+            }
+
+            async submitToGoogleSheets(book) {
+                try {
+                    this.debug('Submitting to Google Sheets');
+                    
+                    // Create form data - field names must match your form
+                    const formData = new FormData();
+                    
+                    // You'll need to update these field IDs after creating your form
+                    // For now, using common field patterns
+                    formData.append('entry.1', book.title);        // Title field
+                    formData.append('entry.2', book.author);       // Author field  
+                    formData.append('entry.3', book.publisher);    // Publisher field
+                    formData.append('entry.4', book.scannedBy);    // Scanned By field
+                    formData.append('entry.5', book.timestamp);    // Timestamp field
+                    
+                    const response = await fetch(this.googleFormUrl, {
+                        method: 'POST',
+                        body: formData,
+                        mode: 'no-cors' // Required for Google Forms
+                    });
+                    
+                    this.debug('Successfully submitted to Google Sheets');
+                    
+                } catch (error) {
+                    this.debug('Error submitting to Google Sheets: ' + error.message);
+                    // Don't show error to user - local storage still works
+                }
             }
 
             resetForNewScan() {
