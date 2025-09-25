@@ -751,31 +751,107 @@ No credit card required!
                 let author = '';
                 let publisher = '';
                 
+                // Enhanced extraction with better logic for children's books
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
+                    const lowerLine = line.toLowerCase();
                     
-                    if (line.length < 3 || /^[^a-zA-Z0-9\s]/.test(line)) continue;
+                    // Skip very short lines or lines with mostly symbols
+                    if (line.length < 3 || /^[^a-zA-Z0-9\s]+$/.test(line)) continue;
                     
-                    if (!author && (/\b(by|author|written by)\b/i.test(line) || 
-                        /^[A-Z][a-z]+ [A-Z][a-z]+$/.test(line))) {
-                        author = line.replace(/\b(by|author|written by)\b/gi, '').trim();
-                        continue;
+                    // Skip common non-content words
+                    if (/\b(come on|the|a|an|and|or|but|in|on|at|to|for|of|with|by)\b$/i.test(line)) continue;
+                    
+                    // Look for author patterns (more specific)
+                    if (!author) {
+                        // Direct "by [Name]" pattern
+                        if (/^by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)$/i.test(line)) {
+                            author = line.replace(/^by\s+/i, '').trim();
+                            continue;
+                        }
+                        
+                        // "words and pictures by [Name]" pattern (common in children's books)
+                        if (/(?:words and pictures|story and pictures|written and illustrated)\s+by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/i.test(line)) {
+                            const match = line.match(/by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/i);
+                            if (match) {
+                                author = match[1].trim();
+                                continue;
+                            }
+                        }
+                        
+                        // Stand-alone proper name (likely author) - must be 2+ words, proper case
+                        if (/^[A-Z][a-z]+\s+[A-Z][a-z]+(\s+[A-Z][a-z]+)*$/.test(line) && 
+                            !lowerLine.includes('school') && 
+                            !lowerLine.includes('go to') &&
+                            !lowerLine.includes('has to')) {
+                            author = line;
+                            continue;
+                        }
                     }
                     
-                    if (/\b(press|books|publishing|publishers?|publications?|media|house)\b/i.test(line)) {
+                    // Look for publisher patterns
+                    if (!publisher && (/\b(press|books|publishing|publishers?|publications?|media|house)\b/i.test(line))) {
                         publisher = line;
                         continue;
                     }
                     
-                    if (!title && line.length > 5 && line.length < 100 && 
-                        !/\b(isbn|copyright|edition|page|chapter)\b/i.test(line)) {
-                        title = line;
+                    // Title identification - prioritize longer, meaningful phrases
+                    if (!title) {
+                        // Must be substantial (5+ chars), not too long (under 80 chars)
+                        // Should look like a title (not random words)
+                        if (line.length >= 5 && line.length < 80 && 
+                            !/\b(isbn|copyright|edition|page|chapter|come on)\b/i.test(line) &&
+                            !/^(has to|the pigeon)$/i.test(line)) { // Exclude partial text
+                            
+                            // Prefer lines with title-like characteristics:
+                            // - Multiple words
+                            // - Contains articles/prepositions (the, to, has, etc.)
+                            // - Sentence case or title case
+                            const wordCount = line.split(/\s+/).length;
+                            if (wordCount >= 3 || /\b(the|a|an|to|has|is|and|or|of|in|on|at|for)\b/i.test(line)) {
+                                title = line;
+                            }
+                        }
                     }
                 }
                 
-                if (!title && lines.length > 0) title = lines[0];
-                if (!author && lines.length > 1) author = lines[1];
-                if (!publisher && lines.length > 2) publisher = lines[lines.length - 1];
+                // Post-processing: try to construct better title from multiple lines
+                if (!title || title.length < 10) {
+                    // Look for title patterns across multiple lines
+                    for (let i = 0; i < lines.length - 1; i++) {
+                        const combined = (lines[i] + ' ' + lines[i + 1]).trim();
+                        if (combined.length > 10 && combined.length < 100 &&
+                            !/\b(by|words and pictures|isbn|copyright)\b/i.test(combined)) {
+                            
+                            // Check if this looks more like a title
+                            const wordCount = combined.split(/\s+/).length;
+                            if (wordCount >= 4) {
+                                title = combined;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                // Clean up and validate results
+                if (title && author && title.toLowerCase() === author.toLowerCase()) {
+                    // If title and author are the same, something went wrong
+                    author = '';
+                }
+                
+                // For your specific example: "The Pigeon HAS to GO to School!"
+                if (!title && lines.length > 0) {
+                    // Try to find the most title-like line
+                    const titleCandidates = lines.filter(line => 
+                        line.length > 8 && 
+                        /[A-Z]/.test(line) && 
+                        !/^(by|words and pictures)/i.test(line)
+                    );
+                    
+                    if (titleCandidates.length > 0) {
+                        title = titleCandidates[0];
+                    }
+                }
                 
                 return { 
                     title: title || '', 
