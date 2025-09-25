@@ -40,6 +40,26 @@
             font-size: 1.1rem;
         }
 
+        .api-notice {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .api-notice button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
         .scanner-section, .list-section {
             background: white;
             border-radius: 20px;
@@ -267,6 +287,12 @@
             <p>Scan book covers with your phone camera</p>
         </div>
 
+        <div class="api-notice" id="apiNotice">
+            <strong>🔑 Setup Required:</strong> Add your Google Vision API key for high-quality OCR
+            <button onclick="bookScanner.promptForApiKey()">Add API Key</button>
+            <button onclick="bookScanner.showApiInstructions()">Get Free API Key</button>
+        </div>
+
         <div class="scanner-section">
             <h2>📱 Scan a Book</h2>
             
@@ -283,9 +309,11 @@
             <canvas id="canvas" class="hidden"></canvas>
 
             <div class="controls">
-                <button id="startCamera" class="btn">📷 Start Camera</button>
+                <button id="startCamera" class="btn">📷 Open Camera</button>
                 <button id="captureBtn" class="btn hidden" disabled>📸 Capture Book</button>
                 <button id="stopCamera" class="btn btn-secondary hidden">❌ Stop Camera</button>
+                <input type="file" id="photoUpload" accept="image/*" capture="environment" style="display: none;">
+                <button id="uploadBtn" class="btn">📁 Choose/Take Photo</button>
             </div>
 
             <div id="status" class="status hidden"></div>
@@ -337,30 +365,50 @@
                 this.ctx = this.canvas.getContext('2d');
                 this.books = this.loadBooks();
                 this.stream = null;
-                this.apiKey = ''; // Users will need to add their Google Cloud Vision API key
+                this.apiKey = localStorage.getItem('googleCloudApiKey') || '';
                 
                 this.initEventListeners();
                 this.updateDisplay();
-                this.checkApiKey();
+                this.updateApiNotice();
             }
 
-            checkApiKey() {
-                const savedKey = localStorage.getItem('googleCloudApiKey');
-                if (savedKey) {
-                    this.apiKey = savedKey;
+            updateApiNotice() {
+                const notice = document.getElementById('apiNotice');
+                if (this.apiKey) {
+                    notice.innerHTML = '<strong>✅ Google Vision API:</strong> High-quality OCR enabled!';
+                    notice.style.background = '#d4edda';
+                    notice.style.color = '#155724';
+                    notice.style.border = '1px solid #c3e6cb';
                 } else {
-                    this.promptForApiKey();
+                    notice.style.display = 'block';
                 }
             }
 
             promptForApiKey() {
-                const key = prompt('Enter your Google Cloud Vision API Key (get it free at console.cloud.google.com):');
-                if (key) {
-                    this.apiKey = key;
-                    localStorage.setItem('googleCloudApiKey', key);
-                } else {
-                    this.showStatus('❌ Google Cloud Vision API key required for OCR. Using fallback OCR (lower quality).', 'error');
+                const key = prompt('Enter your Google Cloud Vision API Key:\n\n(Get one free at console.cloud.google.com - Enable Vision API, then create credentials)');
+                if (key && key.trim()) {
+                    this.apiKey = key.trim();
+                    localStorage.setItem('googleCloudApiKey', this.apiKey);
+                    this.updateApiNotice();
+                    this.showStatus('✅ API key saved! You can now use high-quality OCR.', 'success');
                 }
+            }
+
+            showApiInstructions() {
+                const instructions = `
+📝 Get Free Google Vision API Key:
+
+1. Go to: console.cloud.google.com
+2. Create a new project (or select existing)
+3. Search for "Vision API" and enable it
+4. Go to "Credentials" → "Create Credentials" → "API Key"
+5. Copy the API key and paste it here
+
+Free tier: 1,000 OCR requests/month
+No credit card required!
+                `;
+                alert(instructions);
+                this.promptForApiKey();
             }
 
             initEventListeners() {
@@ -369,10 +417,13 @@
                 document.getElementById('captureBtn').addEventListener('click', () => this.captureImage());
                 document.getElementById('addBook').addEventListener('click', () => this.addBook());
                 document.getElementById('scanAnother').addEventListener('click', () => this.resetForNewScan());
+                document.getElementById('uploadBtn').addEventListener('click', () => this.openPhotoUpload());
+                document.getElementById('photoUpload').addEventListener('change', (e) => this.handlePhotoUpload(e));
                 
-                // Add API key management
+                // Keyboard shortcut for API key
                 document.addEventListener('keydown', (e) => {
                     if (e.ctrlKey && e.shiftKey && e.key === 'K') {
+                        e.preventDefault();
                         this.promptForApiKey();
                     }
                 });
@@ -414,6 +465,27 @@
                 document.getElementById('captureBtn').disabled = true;
             }
 
+            openPhotoUpload() {
+                document.getElementById('photoUpload').click();
+            }
+
+            handlePhotoUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const scannerName = document.getElementById('scannerName').value.trim();
+                if (!scannerName) {
+                    this.showStatus('Please enter your name before scanning.', 'error');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.processImage(e.target.result);
+                };
+                reader.readAsDataURL(file);
+            }
+
             captureImage() {
                 const scannerName = document.getElementById('scannerName').value.trim();
                 if (!scannerName) {
@@ -436,63 +508,60 @@
             }
 
             async processImage(imageData) {
-                this.showStatus('🔍 Processing image with Google Vision...', 'processing');
-                
                 try {
+                    let text = '';
+                    
                     if (this.apiKey) {
-                        const text = await this.callGoogleVisionAPI(imageData);
-                        const bookData = this.extractBookInfo(text);
-                        this.showExtractedData(bookData);
-                        this.showStatus('✅ Text extraction complete! Please review the information below.', 'success');
+                        this.showStatus('🔍 Processing with Google Vision API...', 'processing');
+                        text = await this.callGoogleVisionAPI(imageData);
                     } else {
-                        // Fallback to Tesseract
-                        await this.procesWithTesseract(imageData);
+                        this.showStatus('🔍 Processing with basic OCR (lower quality)...', 'processing');
+                        text = await this.processWithTesseract(imageData);
                     }
+                    
+                    const bookData = this.extractBookInfo(text);
+                    this.showExtractedData(bookData);
+                    this.showStatus('✅ Text extraction complete! Please review the information below.', 'success');
+                    
                 } catch (error) {
-                    this.showStatus('❌ Error processing image. Please try again.', 'error');
                     console.error('OCR Error:', error);
+                    this.showStatus('❌ Error processing image. Please try again with better lighting and focus.', 'error');
                     this.resetForNewScan();
                 }
             }
 
             async callGoogleVisionAPI(imageData) {
-                const base64Image = imageData.split(',')[1]; // Remove data:image/jpeg;base64, prefix
+                const base64Image = imageData.split(',')[1];
                 
                 const requestBody = {
                     requests: [{
-                        image: {
-                            content: base64Image
-                        },
-                        features: [{
-                            type: 'TEXT_DETECTION',
-                            maxResults: 1
-                        }]
+                        image: { content: base64Image },
+                        features: [{ type: 'TEXT_DETECTION', maxResults: 1 }]
                     }]
                 };
 
                 const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${this.apiKey}`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody)
                 });
 
                 if (!response.ok) {
-                    throw new Error(`Google Vision API error: ${response.status}`);
+                    const error = await response.json();
+                    throw new Error(`API Error: ${error.error?.message || response.status}`);
                 }
 
                 const result = await response.json();
                 
-                if (result.responses && result.responses[0] && result.responses[0].textAnnotations) {
+                if (result.responses?.[0]?.textAnnotations?.[0]) {
                     return result.responses[0].textAnnotations[0].description;
                 } else {
                     throw new Error('No text detected in image');
                 }
             }
 
-            async procesWithTesseract(imageData) {
-                // Load Tesseract dynamically as fallback
+            async processWithTesseract(imageData) {
+                // Load Tesseract dynamically
                 if (!window.Tesseract) {
                     const script = document.createElement('script');
                     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js';
@@ -507,62 +576,59 @@
                     logger: m => {
                         if (m.status === 'recognizing text') {
                             const progress = Math.round(m.progress * 100);
-                            this.showStatus(`🔍 Processing with fallback OCR... ${progress}%`, 'processing');
+                            this.showStatus(`🔍 Processing with basic OCR... ${progress}%`, 'processing');
                         }
                     }
                 });
                 
-                const bookData = this.extractBookInfo(text);
-                this.showExtractedData(bookData);
-                this.showStatus('✅ Fallback OCR complete. Quality may be lower - please review carefully.', 'success');
+                return text;
             }
 
             extractBookInfo(text) {
-                const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+                const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 2);
                 
-                // Simple heuristics to extract book information
                 let title = '';
                 let author = '';
                 let publisher = '';
                 
-                // Look for common patterns
+                // Enhanced extraction logic
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
+                    const lowerLine = line.toLowerCase();
                     
-                    // Skip very short lines or lines with special characters
+                    // Skip lines that are clearly not book info
                     if (line.length < 3 || /^[^a-zA-Z0-9\s]/.test(line)) continue;
                     
-                    // Title is usually one of the longer, prominent lines
-                    if (!title && line.length > 5 && line.length < 60) {
-                        // Prefer lines that don't contain common author indicators
-                        if (!/\b(by|author|written)\b/i.test(line)) {
-                            title = line;
-                        }
+                    // Find author patterns
+                    if (!author && (/\b(by|author|written by)\b/i.test(line) || 
+                        /^[A-Z][a-z]+ [A-Z][a-z]+$/.test(line))) {
+                        author = line.replace(/\b(by|author|written by)\b/gi, '').trim();
+                        continue;
                     }
                     
-                    // Look for author patterns
-                    if (!author && /\b(by|author)\b/i.test(line)) {
-                        author = line.replace(/\b(by|author|written by)\b/i, '').trim();
-                    }
-                    
-                    // Look for publisher patterns (often at bottom, may contain "press", "books", "publishing")
-                    if (/\b(press|books|publishing|publishers|publications)\b/i.test(line)) {
+                    // Find publisher patterns
+                    if (/\b(press|books|publishing|publishers?|publications?|media|house)\b/i.test(line)) {
                         publisher = line;
+                        continue;
+                    }
+                    
+                    // Title is usually the longest meaningful line that's not author/publisher
+                    if (!title && line.length > 5 && line.length < 100 && 
+                        !/\b(isbn|copyright|edition|page|chapter)\b/i.test(line)) {
+                        title = line;
                     }
                 }
                 
-                // Fallback: use first few meaningful lines
-                if (!title && lines.length > 0) {
-                    title = lines[0];
-                }
-                if (!author && lines.length > 1) {
-                    author = lines[1];
-                }
-                if (!publisher && lines.length > 2) {
-                    publisher = lines[lines.length - 1]; // Often at the end
-                }
+                // Fallbacks
+                if (!title && lines.length > 0) title = lines[0];
+                if (!author && lines.length > 1) author = lines[1];
+                if (!publisher && lines.length > 2) publisher = lines[lines.length - 1];
                 
-                return { title, author, publisher };
+                return { 
+                    title: title || 'Unknown Title', 
+                    author: author || 'Unknown Author', 
+                    publisher: publisher || 'Unknown Publisher' 
+                };
             }
 
             showExtractedData(bookData) {
@@ -592,7 +658,7 @@
                     timestamp: new Date().toLocaleString()
                 };
                 
-                this.books.unshift(book); // Add to beginning
+                this.books.unshift(book);
                 this.saveBooks();
                 this.updateDisplay();
                 this.showStatus(`✅ "${title}" added to the list!`, 'success');
@@ -662,7 +728,7 @@
         }
 
         // Initialize the app
-        new BookScanner();
+        const bookScanner = new BookScanner();
     </script>
 </body>
 </html>
