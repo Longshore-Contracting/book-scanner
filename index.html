@@ -386,19 +386,12 @@
             constructor() {
                 this.books = this.loadBooks();
                 
-                // HARDCODED VALUES - Replace with your actual values
-                this.apiKey = 'AIzaSyA05Qc5KbXVQMwkAVBACaSIvUBWcChcXwE'; // Replace with your API key
-                this.googleFormUrl = 'https://docs.google.com/forms/d/e/1FAIpQLScqbEx1MYyVhgYDq29SDNQiyY1F3MlF-3nbfBT950qRG5amVg/formResponse'; // Your form submit URL
-                
-                // Check if API key is still placeholder
-                if (this.apiKey === 'YOUR_GOOGLE_VISION_API_KEY_HERE') {
-                    this.manualMode = true;
-                    this.showStatus('⚠️ API key not configured. Using manual mode.', 'error');
-                } else {
-                    this.manualMode = false;
-                }
+                // HARDCODED VALUES - Replace with your actual API key
+                this.apiKey = 'AIzaSyA05Qc5KbXVQMwkAVBACaSIvUBWcChcXwE'; // Replace with your real API key
+                this.googleFormUrl = 'https://docs.google.com/forms/d/e/1FAIpQLScqbEx1MYyVhgYDq29SDNQiyY1F3MlF-3nbfBT950qRG5amVg/formResponse';
                 
                 this.hasSuccessfulScan = localStorage.getItem('hasSuccessfulScan') === 'true';
+                this.manualMode = false; // Start with OCR enabled
                 
                 // Load saved user info
                 this.loadUserInfo();
