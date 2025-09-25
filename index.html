@@ -257,6 +257,16 @@
             overflow-y: auto;
         }
 
+        .info-saved {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+
         @media (max-width: 600px) {
             .container {
                 padding: 10px;
@@ -346,7 +356,8 @@
                 </div>
                 <div class="form-group">
                     <label for="bookTeacher">Teacher:</label>
-                    <input type="text" id="bookTeacher" placeholder="Teacher name" />
+                    <input type="text" id="bookTeacher" placeholder="Teacher name" readonly style="background-color: #f8f9fa;" />
+                    <small style="color: #666; font-size: 0.9rem;">Auto-filled from scanner info above</small>
                 </div>
                 <div class="controls">
                     <button id="addBook" class="btn">✅ Add to List</button>
@@ -382,6 +393,9 @@
                 this.manualMode = localStorage.getItem('manualMode') === 'true';
                 this.googleFormUrl = localStorage.getItem('googleFormUrl') || '';
                 
+                // Load saved user info
+                this.loadUserInfo();
+                
                 this.initEventListeners();
                 this.updateDisplay();
                 this.updateApiNotice();
@@ -390,6 +404,53 @@
                 if (this.debugMode) {
                     document.getElementById('debugInfo').classList.remove('hidden');
                 }
+            }
+
+            loadUserInfo() {
+                const savedName = localStorage.getItem('scannerName');
+                const savedTeacher = localStorage.getItem('defaultTeacher');
+                
+                if (savedName) {
+                    document.getElementById('scannerName').value = savedName;
+                    this.debug(`Loaded saved name: ${savedName}`);
+                }
+                
+                if (savedTeacher) {
+                    document.getElementById('defaultTeacher').value = savedTeacher;
+                    this.debug(`Loaded saved teacher: ${savedTeacher}`);
+                }
+                
+                // Show welcome message if both are saved
+                if (savedName && savedTeacher) {
+                    this.showStatus(`👋 Welcome back, ${savedName}! Ready to scan books for ${savedTeacher}.`, 'success');
+                }
+            }
+
+            saveUserInfo() {
+                const name = document.getElementById('scannerName').value.trim();
+                const teacher = document.getElementById('defaultTeacher').value.trim();
+                
+                if (!name || !teacher) {
+                    this.showStatus('Please enter both your name and teacher name before saving.', 'error');
+                    return;
+                }
+                
+                localStorage.setItem('scannerName', name);
+                localStorage.setItem('defaultTeacher', teacher);
+                
+                this.showStatus(`✅ Saved! ${name} scanning for ${teacher}. This info will be remembered on this device.`, 'success');
+                this.debug(`Saved user info: ${name} / ${teacher}`);
+            }
+
+            clearUserInfo() {
+                localStorage.removeItem('scannerName');
+                localStorage.removeItem('defaultTeacher');
+                document.getElementById('scannerName').value = '';
+                document.getElementById('defaultTeacher').value = '';
+                document.getElementById('bookTeacher').value = '';
+                
+                this.showStatus('🗑️ Saved info cleared. Enter your details above.', 'success');
+                this.debug('Cleared saved user info');
             }
 
             debug(message) {
@@ -499,6 +560,13 @@ No credit card required!
                 document.getElementById('photoUpload').addEventListener('change', (e) => this.handlePhotoUpload(e));
                 document.getElementById('addBook').addEventListener('click', () => this.addBook());
                 document.getElementById('scanAnother').addEventListener('click', () => this.resetForNewScan());
+                document.getElementById('saveUserInfo').addEventListener('click', () => this.saveUserInfo());
+                document.getElementById('clearUserInfo').addEventListener('click', () => this.clearUserInfo());
+                
+                // Auto-update teacher field when default teacher changes
+                document.getElementById('defaultTeacher').addEventListener('input', (e) => {
+                    document.getElementById('bookTeacher').value = e.target.value;
+                });
                 
                 document.addEventListener('keydown', (e) => {
                     if (e.ctrlKey && e.shiftKey && e.key === 'K') {
@@ -522,9 +590,12 @@ No credit card required!
 
                 this.debug(`File selected: ${file.name}, size: ${file.size}, type: ${file.type}`);
 
+                // Check if user info is filled
                 const scannerName = document.getElementById('scannerName').value.trim();
-                if (!scannerName) {
-                    this.showStatus('Please enter your name before scanning.', 'error');
+                const teacherName = document.getElementById('defaultTeacher').value.trim();
+                
+                if (!scannerName || !teacherName) {
+                    this.showStatus('⚠️ Please enter your name and teacher name at the top before scanning books.', 'error');
                     return;
                 }
 
@@ -718,7 +789,11 @@ No credit card required!
                 document.getElementById('bookTitle').value = bookData.title;
                 document.getElementById('bookAuthor').value = bookData.author;
                 document.getElementById('bookPublisher').value = bookData.publisher;
-                document.getElementById('bookTeacher').value = '';
+                
+                // Auto-fill teacher from the saved default
+                const defaultTeacher = document.getElementById('defaultTeacher').value.trim();
+                document.getElementById('bookTeacher').value = defaultTeacher;
+                
                 document.getElementById('extractedData').classList.remove('hidden');
             }
 
