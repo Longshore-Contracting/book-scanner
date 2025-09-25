@@ -387,11 +387,18 @@
                 this.books = this.loadBooks();
                 
                 // HARDCODED VALUES - Replace with your actual values
-                this.apiKey = 'YOUR_GOOGLE_VISION_API_KEY_HERE'; // Replace with your API key
+                this.apiKey = 'AIzaSyA05Qc5KbXVQMwkAVBACaSIvUBWcChcXwE'; // Replace with your API key
                 this.googleFormUrl = 'https://docs.google.com/forms/d/e/1FAIpQLScqbEx1MYyVhgYDq29SDNQiyY1F3MlF-3nbfBT950qRG5amVg/formResponse'; // Your form submit URL
                 
+                // Check if API key is still placeholder
+                if (this.apiKey === 'YOUR_GOOGLE_VISION_API_KEY_HERE') {
+                    this.manualMode = true;
+                    this.showStatus('⚠️ API key not configured. Using manual mode.', 'error');
+                } else {
+                    this.manualMode = false;
+                }
+                
                 this.hasSuccessfulScan = localStorage.getItem('hasSuccessfulScan') === 'true';
-                this.manualMode = false; // Always use OCR when API key is hardcoded
                 
                 // Load saved user info
                 this.loadUserInfo();
@@ -643,12 +650,21 @@ No credit card required!
                     this.debug('Error processing image: ' + error.message);
                     console.error('OCR Error:', error);
                     
-                    if (error.message.includes('403') || error.message.includes('billing')) {
+                    if (error.message.includes('400') || error.message.includes('API key')) {
+                        this.showStatus('⚠️ Invalid API key. Switching to manual mode...', 'error');
+                        setTimeout(() => {
+                            this.manualMode = true;
+                            this.showExtractedData({
+                                title: '',
+                                author: '',
+                                publisher: ''
+                            });
+                            this.showStatus('📝 Manual mode: Please type the book information below.', 'success');
+                        }, 2000);
+                    } else if (error.message.includes('403') || error.message.includes('billing')) {
                         this.showStatus('⚠️ Google API requires billing setup. Switching to manual mode...', 'error');
                         setTimeout(() => {
                             this.manualMode = true;
-                            localStorage.setItem('manualMode', 'true');
-                            this.updateApiNotice();
                             this.showExtractedData({
                                 title: '',
                                 author: '',
