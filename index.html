@@ -257,16 +257,6 @@
             overflow-y: auto;
         }
 
-        .info-saved {
-            background: #d1ecf1;
-            border: 1px solid #bee5eb;
-            color: #0c5460;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 15px;
-            font-size: 0.9rem;
-        }
-
         @media (max-width: 600px) {
             .container {
                 padding: 10px;
@@ -382,7 +372,7 @@
                 this.books = this.loadBooks();
                 
                 // HARDCODED VALUES - Replace with your actual API key
-                this.apiKey = 'AIzaSyA05Qc5KbXVQMwkAVBACaSIvUBWcChcXwE'; // Replace with your real API key
+                this.apiKey = 'YOUR_ACTUAL_API_KEY_HERE'; // Replace with your real API key
                 this.googleFormUrl = 'https://docs.google.com/forms/d/e/1FAIpQLScqbEx1MYyVhgYDq29SDNQiyY1F3MlF-3nbfBT950qRG5amVg/formResponse';
                 
                 this.hasSuccessfulScan = localStorage.getItem('hasSuccessfulScan') === 'true';
@@ -401,23 +391,32 @@
                 }
             }
 
+            debug(message) {
+                console.log('[BookScanner]', message);
+                if (this.debugMode) {
+                    const debugDiv = document.getElementById('debugInfo');
+                    debugDiv.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '<br>';
+                    debugDiv.scrollTop = debugDiv.scrollHeight;
+                }
+            }
+
             loadUserInfo() {
                 const savedName = localStorage.getItem('scannerName');
                 const savedTeacher = localStorage.getItem('defaultTeacher');
                 
                 if (savedName) {
                     document.getElementById('scannerName').value = savedName;
-                    this.debug(`Loaded saved name: ${savedName}`);
+                    this.debug('Loaded saved name: ' + savedName);
                 }
                 
                 if (savedTeacher) {
                     document.getElementById('defaultTeacher').value = savedTeacher;
-                    this.debug(`Loaded saved teacher: ${savedTeacher}`);
+                    this.debug('Loaded saved teacher: ' + savedTeacher);
                 }
                 
                 // Show welcome message if both are saved
                 if (savedName && savedTeacher) {
-                    this.showStatus(`👋 Welcome back, ${savedName}! Ready to scan books for ${savedTeacher}.`, 'success');
+                    this.showStatus('👋 Welcome back, ' + savedName + '! Ready to scan books for ' + savedTeacher + '.', 'success');
                 }
             }
 
@@ -433,8 +432,8 @@
                 localStorage.setItem('scannerName', name);
                 localStorage.setItem('defaultTeacher', teacher);
                 
-                this.showStatus(`✅ Saved! ${name} scanning for ${teacher}. This info will be remembered on this device.`, 'success');
-                this.debug(`Saved user info: ${name} / ${teacher}`);
+                this.showStatus('✅ Saved! ' + name + ' scanning for ' + teacher + '. This info will be remembered on this device.', 'success');
+                this.debug('Saved user info: ' + name + ' / ' + teacher);
             }
 
             clearUserInfo() {
@@ -442,97 +441,15 @@
                 localStorage.removeItem('defaultTeacher');
                 document.getElementById('scannerName').value = '';
                 document.getElementById('defaultTeacher').value = '';
-                document.getElementById('bookTeacher').value = '';
                 
                 this.showStatus('🗑️ Saved info cleared. Enter your details above.', 'success');
                 this.debug('Cleared saved user info');
-            }
-
-            debug(message) {
-                console.log('[BookScanner]', message);
-                if (this.debugMode) {
-                    const debugDiv = document.getElementById('debugInfo');
-                    debugDiv.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '<br>';
-                    debugDiv.scrollTop = debugDiv.scrollHeight;
-                }
             }
 
             updateApiNotice() {
                 // When hardcoded, always hide the setup banner
                 const notice = document.getElementById('apiNotice');
                 notice.style.display = 'none';
-            }
-
-            setupGoogleForm() {
-                const instructions = `
-📊 Connect to Google Sheets:
-
-Your form URL: https://docs.google.com/forms/d/e/1FAIpQLScqbEx1MYyVhgYDq29SDNQiyY1F3MlF-3nbfBT950qRG5amVg/viewform
-
-To get the submit URL:
-1. Right-click on your form → "View page source"
-2. Search for "action" (Ctrl+F)
-3. Copy the URL that looks like:
-   https://docs.google.com/forms/d/e/1FAIpQLScqbEx1MYyVhgYDq29SDNQiyY1F3MlF-3nbfBT950qRG5amVg/formResponse
-
-OR just paste this (I'll convert it):
-                `;
-                
-                const url = prompt(instructions);
-                if (url) {
-                    let formUrl = url;
-                    
-                    if (url.includes('viewform')) {
-                        formUrl = url.replace('viewform', 'formResponse').split('?')[0];
-                    }
-                    
-                    if (formUrl.includes('formResponse')) {
-                        this.googleFormUrl = formUrl;
-                        localStorage.setItem('googleFormUrl', formUrl);
-                        this.updateApiNotice();
-                        this.showStatus('✅ Google Sheets connected! All new scans will sync to your spreadsheet.', 'success');
-                        
-                        setTimeout(() => {
-                            alert('Next: I need to get the field IDs from your form. Please scan a test book to set this up automatically.');
-                        }, 2000);
-                    } else {
-                        alert('Please paste your Google Form URL (the one that contains your form ID)');
-                    }
-                }
-            }
-
-            promptForApiKey() {
-                const key = prompt('Enter your Google Cloud Vision API Key:\n\n(Get one free at console.cloud.google.com - Enable Vision API, then create credentials)');
-                if (key && key.trim()) {
-                    this.apiKey = key.trim();
-                    localStorage.setItem('googleCloudApiKey', this.apiKey);
-                    this.updateApiNotice();
-                    this.showStatus('✅ API key saved! You can now use high-quality OCR.', 'success');
-                }
-            }
-
-            showApiInstructions() {
-                const instructions = `
-📝 Get Free Google Vision API Key:
-
-1. Go to: console.cloud.google.com
-2. Create a new project (or select existing)
-3. Search for "Vision API" and enable it
-4. Go to "Credentials" → "Create Credentials" → "API Key"
-5. Copy the API key and paste it here
-
-Free tier: 1,000 OCR requests/month
-No credit card required!
-                `;
-                alert(instructions);
-                this.promptForApiKey();
-            }
-
-            toggleManualMode() {
-                this.manualMode = true;
-                localStorage.setItem('manualMode', 'true');
-                this.updateApiNotice();
-                this.showStatus('✅ Manual mode enabled! Take photos and type book info yourself.', 'success');
             }
 
             initEventListeners() {
@@ -545,13 +462,13 @@ No credit card required!
                 
                 // Auto-update teacher field when default teacher changes
                 document.getElementById('defaultTeacher').addEventListener('input', (e) => {
-                    document.getElementById('bookTeacher').value = e.target.value;
+                    // No longer needed since we removed the duplicate teacher field
                 });
                 
                 document.addEventListener('keydown', (e) => {
                     if (e.ctrlKey && e.shiftKey && e.key === 'K') {
                         e.preventDefault();
-                        this.promptForApiKey();
+                        // API key management removed for hardcoded version
                     }
                 });
             }
@@ -568,7 +485,7 @@ No credit card required!
                     return;
                 }
 
-                this.debug(`File selected: ${file.name}, size: ${file.size}, type: ${file.type}`);
+                this.debug('File selected: ' + file.name + ', size: ' + file.size + ', type: ' + file.type);
 
                 // Check if user info is filled
                 const scannerName = document.getElementById('scannerName').value.trim();
@@ -610,12 +527,12 @@ No credit card required!
                         return;
                     }
                     
-                    if (this.apiKey && this.apiKey !== 'YOUR_GOOGLE_VISION_API_KEY_HERE') {
+                    if (this.apiKey && this.apiKey !== 'YOUR_ACTUAL_API_KEY_HERE') {
                         this.showStatus('🔍 Processing with Google Vision API...', 'processing');
                         this.debug('Using Google Vision API');
                         try {
                             text = await this.callGoogleVisionAPI(imageData);
-                            this.debug(`Extracted text length: ${text.length}`);
+                            this.debug('Extracted text length: ' + text.length);
                         } catch (apiError) {
                             this.debug('API failed, falling back to manual mode: ' + apiError.message);
                             this.manualMode = true;
@@ -631,13 +548,13 @@ No credit card required!
                         this.showStatus('🔍 Processing with basic OCR (lower quality)...', 'processing');
                         this.debug('Using Tesseract fallback');
                         text = await this.processWithTesseract(imageData);
-                        this.debug(`Extracted text length: ${text.length}`);
+                        this.debug('Extracted text length: ' + text.length);
                     }
                     
                     this.debug('Raw extracted text: ' + text.substring(0, 200) + '...');
                     
                     const bookData = this.extractBookInfo(text);
-                    this.debug(`Extracted book data: ${JSON.stringify(bookData)}`);
+                    this.debug('Extracted book data: ' + JSON.stringify(bookData));
                     
                     this.showExtractedData(bookData);
                     this.showStatus('✅ Text extraction complete! Please review the information below.', 'success');
@@ -673,28 +590,28 @@ No credit card required!
                 };
 
                 this.debug('Sending request to Google Vision API');
-                const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${this.apiKey}`, {
+                const response = await fetch('https://vision.googleapis.com/v1/images:annotate?key=' + this.apiKey, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody)
                 });
 
-                this.debug(`API response status: ${response.status}`);
+                this.debug('API response status: ' + response.status);
 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    this.debug(`API error response: ${errorText}`);
-                    throw new Error(`API Error: ${response.status} - ${errorText}`);
+                    this.debug('API error response: ' + errorText);
+                    throw new Error('API Error: ' + response.status + ' - ' + errorText);
                 }
 
                 const result = await response.json();
                 this.debug('API response received');
                 
-                if (result.responses?.[0]?.error) {
-                    throw new Error(`Vision API Error: ${result.responses[0].error.message}`);
+                if (result.responses && result.responses[0] && result.responses[0].error) {
+                    throw new Error('Vision API Error: ' + result.responses[0].error.message);
                 }
                 
-                if (result.responses?.[0]?.textAnnotations?.[0]) {
+                if (result.responses && result.responses[0] && result.responses[0].textAnnotations && result.responses[0].textAnnotations[0]) {
                     return result.responses[0].textAnnotations[0].description;
                 } else {
                     throw new Error('No text detected in image');
@@ -714,16 +631,16 @@ No credit card required!
                 }
 
                 this.debug('Running Tesseract OCR');
-                const { data: { text } } = await Tesseract.recognize(imageData, 'eng', {
+                const result = await Tesseract.recognize(imageData, 'eng', {
                     logger: m => {
                         if (m.status === 'recognizing text') {
                             const progress = Math.round(m.progress * 100);
-                            this.showStatus(`🔍 Processing with basic OCR... ${progress}%`, 'processing');
+                            this.showStatus('🔍 Processing with basic OCR... ' + progress + '%', 'processing');
                         }
                     }
                 });
                 
-                return text;
+                return result.data.text;
             }
 
             extractBookInfo(text) {
@@ -740,7 +657,6 @@ No credit card required!
                 
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
-                    const lowerLine = line.toLowerCase();
                     
                     // Skip very short lines or lines with mostly symbols
                     if (line.length < 3 || /^[^a-zA-Z0-9\s]+$/.test(line)) continue;
@@ -893,7 +809,7 @@ No credit card required!
                     timestamp: new Date().toLocaleString()
                 };
                 
-                this.debug(`Adding book: ${JSON.stringify(book)}`);
+                this.debug('Adding book: ' + JSON.stringify(book));
                 
                 this.books.unshift(book);
                 this.saveBooks();
@@ -903,7 +819,7 @@ No credit card required!
                     this.submitToGoogleSheets(book);
                 }
                 
-                this.showStatus(`✅ "${title}" added to the list!`, 'success');
+                this.showStatus('✅ "' + title + '" added to the list!', 'success');
                 this.resetForNewScan();
             }
 
@@ -918,98 +834,3 @@ No credit card required!
                     formData.append('entry.654337640', book.author);     // Author field
                     formData.append('entry.1879822333', book.publisher); // Publisher field
                     formData.append('entry.320463454', book.scannedBy);  // Scanned By field
-                    formData.append('entry.76820609', book.teacher);     // Teacher field
-                    
-                    this.debug(`Form data: Title=${book.title}, Author=${book.author}, Publisher=${book.publisher}, ScannedBy=${book.scannedBy}, Teacher=${book.teacher}`);
-                    
-                    const response = await fetch(this.googleFormUrl, {
-                        method: 'POST',
-                        body: formData,
-                        mode: 'no-cors'
-                    });
-                    
-                    this.debug('Successfully submitted to Google Sheets');
-                    
-                } catch (error) {
-                    this.debug('Error submitting to Google Sheets: ' + error.message);
-                }
-            }
-
-            resetForNewScan() {
-                this.debug('Resetting for new scan');
-                document.getElementById('extractedData').classList.add('hidden');
-                document.getElementById('photoPreview').classList.add('hidden');
-                document.getElementById('bookTitle').value = '';
-                document.getElementById('bookAuthor').value = '';
-                document.getElementById('bookPublisher').value = '';
-                document.getElementById('status').classList.add('hidden');
-                document.getElementById('photoUpload').value = '';
-            }
-
-            updateDisplay() {
-                this.debug(`Updating display with ${this.books.length} books`);
-                const bookList = document.getElementById('bookList');
-                const totalBooks = document.getElementById('totalBooks');
-                const totalScanners = document.getElementById('totalScanners');
-                
-                totalBooks.textContent = this.books.length;
-                
-                const uniqueScanners = new Set(this.books.map(book => book.scannedBy));
-                totalScanners.textContent = uniqueScanners.size;
-                
-                if (this.books.length === 0) {
-                    bookList.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">No books scanned yet. Start scanning to populate the list!</p>';
-                } else {
-                    bookList.innerHTML = this.books.map(book => `
-                        <div class="book-item">
-                            <h3>${this.escapeHtml(book.title)}</h3>
-                            <p><strong>Author:</strong> ${this.escapeHtml(book.author)}</p>
-                            <p><strong>Publisher:</strong> ${this.escapeHtml(book.publisher || 'Not specified')}</p>
-                            <p><strong>Teacher:</strong> ${this.escapeHtml(book.teacher)}</p>
-                            <p class="scanned-by">Scanned by ${this.escapeHtml(book.scannedBy)} on ${book.timestamp}</p>
-                        </div>
-                    `).join('');
-                }
-            }
-
-            escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-
-            showStatus(message, type) {
-                const status = document.getElementById('status');
-                status.textContent = message;
-                status.className = `status ${type}`;
-                status.classList.remove('hidden');
-                
-                if (type === 'success') {
-                    setTimeout(() => status.classList.add('hidden'), 3000);
-                }
-            }
-
-            loadBooks() {
-                try {
-                    const books = JSON.parse(localStorage.getItem('scannedBooks') || '[]');
-                    this.debug(`Loaded ${books.length} books from storage`);
-                    return books;
-                } catch {
-                    return [];
-                }
-            }
-
-            saveBooks() {
-                localStorage.setItem('scannedBooks', JSON.stringify(this.books));
-                this.debug(`Saved ${this.books.length} books to storage`);
-            }
-        }
-
-        const bookScanner = new BookScanner();
-
-        if (window.location.search.includes('debug=true')) {
-            console.log('Debug mode enabled - check the debug info section');
-        }
-    </script>
-</body>
-</html>
