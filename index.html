@@ -75,6 +75,15 @@
             padding: 20px 40px;
         }
         
+        .btn-secondary {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+        
+        .btn-secondary:hover {
+            box-shadow: 0 10px 25px rgba(40, 167, 69, 0.6);
+        }
+        
         .form-group { 
             margin: 15px 0; 
         }
@@ -102,7 +111,7 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
         
-        #status { 
+        .status { 
             padding: 15px; 
             margin: 15px 0; 
             border-radius: 10px;
@@ -205,15 +214,19 @@
                 <button class="btn" onclick="saveInfo()">Save My Info</button>
                 <button class="btn" onclick="clearInfo()">Clear Saved Info</button>
             </div>
+            
+            <!-- Info status messages will appear here -->
+            <div id="infoStatus"></div>
         </div>
 
-        <div class="section">
+        <div class="section" id="scanSection">
             <h2>Scan a Book</h2>
             <div class="controls">
                 <button class="btn btn-large" onclick="takePhoto()">Take/Choose Photo</button>
             </div>
         </div>
 
+        <!-- General status messages will appear here -->
         <div id="status"></div>
 
         <input type="file" id="photoUpload" accept="image/*" capture="environment" onchange="handleFile(this)">
@@ -239,6 +252,9 @@
 
         <div class="section">
             <h2>Books List</h2>
+            <div class="controls" id="addNewBookControls" style="display: none;">
+                <button class="btn btn-secondary" onclick="addNewBook()">Add New Book</button>
+            </div>
             <div id="booksList"></div>
         </div>
     </div>
@@ -247,14 +263,13 @@
         console.log('Script loading...');
         
         let books = [];
-        const API_KEY = 'YOUR_API_KEY_HERE'; // Replace with your actual Google Vision API key
+        const API_KEY = 'AIzaSyA05Qc5KbXVQMwkAVBACaSIvUBWcChcXwE'; // Replace with your actual Google Vision API key
         
-        function showStatus(message, type) {
+        function showStatus(message, type, targetElement = 'status') {
             console.log('Status:', message);
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = type;
-            setTimeout(() => status.textContent = '', 3000);
+            const status = document.getElementById(targetElement);
+            status.innerHTML = '<div class="status ' + type + '">' + message + '</div>';
+            setTimeout(() => status.innerHTML = '', 3000);
         }
         
         function saveInfo() {
@@ -263,13 +278,13 @@
             const teacher = document.getElementById('defaultTeacher').value.trim();
             
             if (!name || !teacher) {
-                showStatus('Please enter both name and teacher', 'error');
+                showStatus('Please enter both name and teacher', 'error', 'infoStatus');
                 return;
             }
             
             localStorage.setItem('scannerName', name);
             localStorage.setItem('defaultTeacher', teacher);
-            showStatus('Info saved successfully!', 'success');
+            showStatus('Info saved successfully!', 'success', 'infoStatus');
         }
         
         function clearInfo() {
@@ -278,7 +293,7 @@
             localStorage.removeItem('defaultTeacher');
             document.getElementById('scannerName').value = '';
             document.getElementById('defaultTeacher').value = '';
-            showStatus('Info cleared!', 'success');
+            showStatus('Info cleared!', 'success', 'infoStatus');
         }
         
         function takePhoto() {
@@ -292,6 +307,30 @@
             }
             
             document.getElementById('photoUpload').click();
+        }
+        
+        function addNewBook() {
+            console.log('Add New Book clicked');
+            
+            // Reset the photo upload
+            document.getElementById('photoUpload').value = '';
+            
+            // Hide extracted data section
+            document.getElementById('extractedData').style.display = 'none';
+            
+            // Clear any status messages
+            document.getElementById('status').innerHTML = '';
+            
+            // Clear form fields
+            document.getElementById('bookTitle').value = '';
+            document.getElementById('bookAuthor').value = '';
+            document.getElementById('bookPublisher').value = '';
+            
+            // Show success message
+            showStatus('Ready to scan a new book!', 'success');
+            
+            // Scroll to scan section
+            document.getElementById('scanSection').scrollIntoView({ behavior: 'smooth' });
         }
         
         async function handleFile(input) {
@@ -552,6 +591,9 @@
             document.getElementById('bookPublisher').value = '';
             document.getElementById('extractedData').style.display = 'none';
             
+            // Show the "Add New Book" button
+            document.getElementById('addNewBookControls').style.display = 'block';
+            
             showStatus('Book "' + title + '" added!', 'success');
         }
         
@@ -600,7 +642,7 @@
             if (savedTeacher) document.getElementById('defaultTeacher').value = savedTeacher;
             
             if (savedName && savedTeacher) {
-                showStatus('Welcome back, ' + savedName + '!', 'success');
+                showStatus('Welcome back, ' + savedName + '!', 'success', 'infoStatus');
             }
         };
         
