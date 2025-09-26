@@ -306,8 +306,8 @@
             </div>
             
             <div class="controls">
-                <button id="saveUserInfo" class="btn">💾 Save My Info</button>
-                <button id="clearUserInfo" class="btn btn-secondary">🗑️ Clear Saved Info</button>
+                <button onclick="window.bookScanner.saveUserInfo()" class="btn">💾 Save My Info</button>
+                <button onclick="window.bookScanner.clearUserInfo()" class="btn btn-secondary">🗑️ Clear Saved Info</button>
             </div>
             
             <hr style="margin: 30px 0; border: none; border-top: 2px solid #e9ecef;">
@@ -315,8 +315,7 @@
             <h2>📱 Scan a Book</h2>
 
             <div class="controls">
-                <input type="file" id="photoUpload" accept="image/*" capture="environment">
-                <button id="uploadBtn" class="btn btn-large">📷 Take/Choose Photo</button>
+                <button onclick="window.bookScanner.openPhotoUpload()" class="btn btn-large">📷 Take/Choose Photo</button>
             </div>
 
             <div id="photoPreview" class="photo-preview hidden">
@@ -342,8 +341,8 @@
                     <input type="text" id="bookPublisher" placeholder="Publisher" />
                 </div>
                 <div class="controls">
-                    <button id="addBook" class="btn">✅ Add to List</button>
-                    <button id="scanAnother" class="btn btn-secondary">🔄 Scan Another</button>
+                    <button onclick="window.bookScanner.addBook()" class="btn">✅ Add to List</button>
+                    <button onclick="window.bookScanner.resetForNewScan()" class="btn btn-secondary">🔄 Scan Another</button>
                 </div>
             </div>
         </div>
@@ -369,25 +368,33 @@
     <script>
         class BookScanner {
             constructor() {
+                console.log('BookScanner initializing...');
                 this.books = this.loadBooks();
                 
                 // HARDCODED VALUES - Replace with your actual API key
-                this.apiKey = 'AIzaSyA05Qc5KbXVQMwkAVBACaSIvUBWcChcXwE'; // Replace with your real API key
+                this.apiKey = ''; // Leave empty to force manual mode for now
                 this.googleFormUrl = 'https://docs.google.com/forms/d/e/1FAIpQLScqbEx1MYyVhgYDq29SDNQiyY1F3MlF-3nbfBT950qRG5amVg/formResponse';
                 
                 this.hasSuccessfulScan = localStorage.getItem('hasSuccessfulScan') === 'true';
-                this.manualMode = false; // Start with OCR enabled
+                this.manualMode = true; // Force manual mode for now
                 
                 // Load saved user info
                 this.loadUserInfo();
                 
-                this.initEventListeners();
-                this.updateDisplay();
-                this.updateApiNotice();
+                try {
+                    this.initEventListeners();
+                    this.updateDisplay();
+                    this.updateApiNotice();
+                    console.log('BookScanner initialized successfully');
+                } catch (error) {
+                    console.error('Error during initialization:', error);
+                    alert('Error initializing app: ' + error.message);
+                }
                 
                 this.debugMode = window.location.search.includes('debug=true');
                 if (this.debugMode) {
                     document.getElementById('debugInfo').classList.remove('hidden');
+                    console.log('Debug mode enabled');
                 }
             }
 
@@ -453,29 +460,35 @@
             }
 
             initEventListeners() {
-                document.getElementById('uploadBtn').addEventListener('click', () => this.openPhotoUpload());
-                document.getElementById('photoUpload').addEventListener('change', (e) => this.handlePhotoUpload(e));
-                document.getElementById('addBook').addEventListener('click', () => this.addBook());
-                document.getElementById('scanAnother').addEventListener('click', () => this.resetForNewScan());
-                document.getElementById('saveUserInfo').addEventListener('click', () => this.saveUserInfo());
-                document.getElementById('clearUserInfo').addEventListener('click', () => this.clearUserInfo());
+                console.log('Initializing event listeners...');
                 
-                // Auto-update teacher field when default teacher changes
-                document.getElementById('defaultTeacher').addEventListener('input', (e) => {
-                    // No longer needed since we removed the duplicate teacher field
+                // File input handler
+                const photoInput = document.createElement('input');
+                photoInput.type = 'file';
+                photoInput.accept = 'image/*';
+                photoInput.capture = 'environment';
+                photoInput.style.display = 'none';
+                photoInput.id = 'photoUpload';
+                document.body.appendChild(photoInput);
+                
+                photoInput.addEventListener('change', (e) => {
+                    console.log('File input changed');
+                    this.handlePhotoUpload(e);
                 });
                 
-                document.addEventListener('keydown', (e) => {
-                    if (e.ctrlKey && e.shiftKey && e.key === 'K') {
-                        e.preventDefault();
-                        // API key management removed for hardcoded version
-                    }
-                });
+                console.log('Event listeners initialized');
             }
 
             openPhotoUpload() {
+                console.log('Opening photo upload dialog');
                 this.debug('Opening photo upload dialog');
-                document.getElementById('photoUpload').click();
+                const photoInput = document.getElementById('photoUpload');
+                if (photoInput) {
+                    photoInput.click();
+                } else {
+                    console.error('Photo input not found');
+                    alert('Photo input not found. Please refresh the page.');
+                }
             }
 
             handlePhotoUpload(event) {
@@ -527,7 +540,7 @@
                         return;
                     }
                     
-                    if (this.apiKey && this.apiKey !== 'YOUR_ACTUAL_API_KEY_HERE') {
+                    if (this.apiKey && this.apiKey !== 'AIzaSyA05Qc5KbXVQMwkAVBACaSIvUBWcChcXwE') {
                         this.showStatus('🔍 Processing with Google Vision API...', 'processing');
                         this.debug('Using Google Vision API');
                         try {
