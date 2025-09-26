@@ -70,6 +70,7 @@
         console.log('Script loading...');
         
         let books = [];
+        const API_KEY = 'YOUR_API_KEY_HERE'; // Replace with your actual Google Vision API key
         
         function showStatus(message, type) {
             console.log('Status:', message);
@@ -116,15 +117,220 @@
             document.getElementById('photoUpload').click();
         }
         
-        function handleFile(input) {
+        async function handleFile(input) {
             console.log('File selected');
             const file = input.files[0];
-            if (file) {
-                showStatus('Photo selected: ' + file.name, 'success');
-                // For now, just show the form manually
+            if (!file) return;
+            
+            showStatus('Processing image with Google Vision API...', 'success');
+            
+            try {
+                // Convert file to base64
+                const base64Image = await fileToBase64(file);
+                
+                if (API_KEY && API_KEY !== 'YOUR_API_KEY_HERE') {
+                    // Use Google Vision API
+                    const extractedText = await callGoogleVisionAPI(base64Image);
+                    const bookData = extractBookInfo(extractedText);
+                    
+                    // Populate the form with extracted data
+                    document.getElementById('bookTitle').value = bookData.title;
+                    document.getElementById('bookAuthor').value = bookData.author;
+                    document.getElementById('bookPublisher').value = bookData.publisher;
+                    
+                    showStatus('Text extracted! Please review and correct the information below.', 'success');
+                } else {
+                    showStatus('Manual mode: Please type book information', 'success');
+                }
+                
                 document.getElementById('extractedData').style.display = 'block';
-                showStatus('Manual mode: Please type book information', 'success');
+                
+            } catch (error) {
+                console.error('OCR Error:', error);
+                showStatus('OCR failed, using manual mode', 'error');
+                document.getElementById('extractedData').style.display = 'block';
             }
+        }
+        
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        async function callGoogleVisionAPI(imageData) {
+            const base64Image = imageData.split(',')[1];
+            
+            const requestBody = {
+                requests: [{
+                    image: { content: base64Image },
+                    features: [{ type: 'TEXT_DETECTION', maxResults: 1 }]
+                }]
+            };
+
+            const response = await fetch('https://vision.googleapis.com/v1/images:annotate?key=' + API_KEY, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error('API Error: ' + response.status + ' - ' + errorText);
+            }
+
+            const result = await response.json();
+            
+            if (result.responses && result.responses[0] && result.responses[0].error) {
+                throw new Error('Vision API Error: ' + result.responses[0].error.message);
+            }
+            
+            if (result.responses && result.responses[0] && result.responses[0].textAnnotations && result.responses[0].textAnnotations[0]) {
+                return result.responses[0].textAnnotations[0].description;
+            } else {
+                throw new Error('No text detected in image');
+            }
+        }
+        
+        function extractBookInfo(text) {
+            console.log('Extracting book info from:', text.substring(0, 200) + '...');
+            
+            const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 2);
+            
+            let title = '';
+            let author = '';
+            let publisher = '';
+            
+            // Look for title and author patterns
+            const titleCandidates = [];
+            const authorCandidates = [];
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                
+                // Skip very short lines or lines with mostly symbols
+                if (line.length < 3 || /^[^a-zA-Z0-9\s]+$/.test(line)) continue;
+                
+                // AUTHOR DETECTION - Look for clear author patterns first
+                if (/^(written by|by|author|story by|text by)\s+/i.test(line)) {
+                    const authorName = line.replace(/^(written by|by|author|story by|text by)\s+/i, '').trim();
+                    if (authorName && authorName.length > 2) {
+                        authorCandidates.push(authorName);
+                        continue;
+                    }
+                }
+                
+                // Author in "words and pictures by [name]" format
+                if (/words and pictures by\s+(.+)$/i.test(line)) {
+                    const match = line.match(/words and pictures by\s+(.+)$/i);
+                    if (match && match[1]) {
+                        authorCandidates.push(match[1].trim());
+                        continue;
+                    }
+                }
+                
+                // PUBLISHER DETECTION
+                if (/\b(press|books|publishing|publishers?|publications?|media|house)\b/i.test(line) && 
+                    !/^(the|a|an)\s/i.test(line)) {
+                    publisher = line;
+                    continue;
+                }
+                
+                // TITLE DETECTION - Skip obvious non-titles
+                if (
+                    // Skip series/bestseller info
+                    /(bestselling|series|#\d+|new york times)/i.test(line) ||
+                    // Skip author credit lines
+                    /(written by|by|author|illustrated by|words and pictures)/i.test(line) ||
+                    // Skip speech bubbles and short phrases
+                    /(come on!?|go to)/i.test(line) ||
+                    // Skip ISBN, copyright, etc.
+                    /(isbn|copyright|edition|page|chapter)/i.test(line) ||
+                    // Skip very long lines (likely descriptions)
+                    line.length > 80 ||
+                    // Skip very short lines (likely fragments)
+                    line.length < 5
+                ) {
+                    continue;
+                }
+                
+                // Good title candidate - meaningful length, looks like a title
+                if (line.length >= 5 && line.length <= 60) {
+                    // Prioritize lines with title-case or all caps (common for titles)
+                    let priority = 0;
+                    
+                    // Higher priority for all caps (like "THE SMART COOKIE")
+                    if (/^[A-Z\s\-!]+$/.test(line)) {
+                        priority += 10;
+                    }
+                    
+                    // Higher priority for title case
+                    if (/^[A-Z][a-z]+(\s[A-Z][a-z]*)*/.test(line)) {
+                        priority += 5;
+                    }
+                    
+                    // Higher priority for lines with common title words
+                    if (/\b(the|a|an|and|or|to|has|goes|will|can)\b/i.test(line)) {
+                        priority += 3;
+                    }
+                    
+                    // Higher priority for longer meaningful titles
+                    if (line.split(' ').length >= 3) {
+                        priority += 2;
+                    }
+                    
+                    titleCandidates.push({ text: line, priority: priority });
+                }
+            }
+            
+            // Select best title candidate
+            if (titleCandidates.length > 0) {
+                // Sort by priority (highest first)
+                titleCandidates.sort((a, b) => b.priority - a.priority);
+                title = titleCandidates[0].text;
+            }
+            
+            // Select best author candidate
+            if (authorCandidates.length > 0) {
+                // Prefer the first clear author match
+                author = authorCandidates[0];
+            }
+            
+            // Fallback: if no title found, try to construct from multiple lines
+            if (!title && lines.length > 0) {
+                // Look for the most prominent text that isn't author info
+                const filteredLines = lines.filter(line => 
+                    !/(written by|by|author|words and pictures|bestselling|series)/i.test(line) &&
+                    line.length >= 10 && line.length <= 60
+                );
+                
+                if (filteredLines.length > 0) {
+                    title = filteredLines[0];
+                }
+            }
+            
+            // If we still don't have an author, look for standalone name patterns
+            if (!author) {
+                for (const line of lines) {
+                    // Look for proper names (First Last, or First Middle Last)
+                    if (/^[A-Z][a-z]+\s+[A-Z][a-z]+(\s+[A-Z][a-z]+)?$/.test(line) && 
+                        !/(the|pigeon|cookie|smart)/i.test(line)) {
+                        author = line;
+                        break;
+                    }
+                }
+            }
+            
+            console.log('Extracted:', { title, author, publisher });
+            
+            return { 
+                title: title || '', 
+                author: author || '', 
+                publisher: publisher || '' 
+            };
         }
         
         function addBook() {
